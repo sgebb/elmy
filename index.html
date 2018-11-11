@@ -4977,7 +4977,7 @@ var author$project$Main$NewChar = function (a) {
 };
 var elm$json$Json$Decode$field = _Json_decodeField;
 var elm$json$Json$Decode$string = _Json_decodeString;
-var author$project$Main$picDecoder = A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string);
+var author$project$Main$charDecoder = A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string);
 var elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {
 		if (!ls.b) {
@@ -5790,12 +5790,11 @@ var author$project$Main$getCharacter = function (charIndex) {
 		A2(
 			elm$http$Http$get,
 			author$project$Main$toPicUrl(charIndex),
-			author$project$Main$picDecoder));
+			author$project$Main$charDecoder));
 };
 var author$project$Main$CharPosted = function (a) {
 	return {$: 'CharPosted', a: a};
 };
-var author$project$Main$charDecoder = A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string);
 var elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -5882,7 +5881,7 @@ var author$project$Main$update = F2(
 						_Utils_update(
 							model,
 							{charIndex: 1}),
-						author$project$Main$getCharacter(model.charIndex));
+						elm$core$Platform$Cmd$none);
 				}
 			case 'PostChar':
 				return _Utils_Tuple2(
