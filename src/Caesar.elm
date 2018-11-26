@@ -2,9 +2,6 @@ import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Http
-import Json.Decode as Decode
-import Url.Builder as Url
 
 
 
@@ -26,7 +23,7 @@ main =
 
 type alias Model =
   { 
-      ciphertext : String
+      cleartext : String
       , shift: Int
   }
 
@@ -43,20 +40,35 @@ alfSize =
 
 -- UPDATE
 
+encodeChar : Char -> Int -> Char
+encodeChar char shift =
+    charValue (modBy alfSize (intValue char + shift))
+
+decodeChar : Char -> Int -> Char
+decodeChar char shift =
+    encodeChar char ((-1)*shift)
+        
+intValue : Char -> Int
+intValue char =
+    Char.toCode char - Char.toCode 'a'
+    
+charValue : Int -> Char
+charValue int =
+    Char.fromCode (int + Char.toCode 'a') 
+
+encrypt : String -> Int -> String
+encrypt clear shift =
+    String.concat (List.map (\x -> String.fromChar(encodeChar x shift))  (String.toList clear))
+   
+decrypt : String -> Int -> String
+decrypt cipher shift = 
+    String.concat (List.map (\x -> String.fromChar(decodeChar x shift))  (String.toList cipher))
 
 type Msg
   = None
-  | ChangeCipher String
+  | ChangeClear String
   | ChangeShift String
-
-encodeChar : Char -> Int -> Char
-encodeChar char shift =
-        Char.fromCode (Char.toCode char  + shift)
-
-decrypt : String -> Int -> String
-decrypt cipher shift =
-    String.concat (List.map (\x -> String.fromChar(encodeChar x shift))  (String.toList cipher))
-
+  | ChangeCipher String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -64,8 +76,8 @@ update msg model =
     None ->
         (model, Cmd.none)
     
-    ChangeCipher nyCipher->
-        ({model | ciphertext = nyCipher}, Cmd.none)
+    ChangeClear nyClear->
+        ({model | cleartext = nyClear}, Cmd.none)
 
     ChangeShift nyShift->
         let 
@@ -76,6 +88,8 @@ update msg model =
                     (model, Cmd.none)
                 Just val ->
                     ({model | shift = val}, Cmd.none)
+    ChangeCipher nyCipher ->
+        ({model | cleartext = decrypt nyCipher model.shift}, Cmd.none)
      
 
 -- SUBSCRIPTIONS
@@ -95,7 +109,7 @@ view model =
   div []
     [
         h1 [][text "Cipher"],
-        input [placeholder "ciphertext", value model.ciphertext, onInput ChangeCipher] [],
+        input [placeholder "ciphertext", value model.cleartext, onInput ChangeClear] [],
         input [type_ "number", placeholder "shift", value (String.fromInt(model.shift)), onInput ChangeShift] [],
-        textarea [placeholder "cleartext", value (decrypt model.ciphertext model.shift)][]
+        input [placeholder "cleartext", value (encrypt model.cleartext model.shift), onInput ChangeCipher][]
     ]
