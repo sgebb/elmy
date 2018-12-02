@@ -4568,9 +4568,9 @@ function _Browser_load(url)
 		}
 	}));
 }
-var author$project$Main$Model = F4(
-	function (charOne, charTwo, lastPickedChar, charList) {
-		return {charList: charList, charOne: charOne, charTwo: charTwo, lastPickedChar: lastPickedChar};
+var author$project$Main$Model = F5(
+	function (charOne, charTwo, lastPickedChar, lastNotPickedChar, charList) {
+		return {charList: charList, charOne: charOne, charTwo: charTwo, lastNotPickedChar: lastNotPickedChar, lastPickedChar: lastPickedChar};
 	});
 var author$project$Main$GotCharacters = function (a) {
 	return {$: 'GotCharacters', a: a};
@@ -5972,7 +5972,7 @@ var author$project$Main$init = function (_n0) {
 		_List_fromArray(
 			[author$project$Main$getCharacters]));
 	return _Utils_Tuple2(
-		A4(author$project$Main$Model, char1, char2, author$project$Main$nullCharacter, _List_Nil),
+		A5(author$project$Main$Model, char1, char2, author$project$Main$nullCharacter, author$project$Main$nullCharacter, _List_Nil),
 		author$project$Main$getCharacters);
 };
 var elm$core$Platform$Sub$batch = _Platform_batch;
@@ -6165,11 +6165,6 @@ var author$project$Main$twoDifferent = function (charlist) {
 		},
 		author$project$Main$takeAny(charlist));
 };
-var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
-var elm$core$Tuple$second = function (_n0) {
-	var y = _n0.b;
-	return y;
-};
 var elm$random$Random$Generate = function (a) {
 	return {$: 'Generate', a: a};
 };
@@ -6251,6 +6246,17 @@ var elm$random$Random$generate = F2(
 			elm$random$Random$Generate(
 				A2(elm$random$Random$map, tagger, generator)));
 	});
+var author$project$Main$generateNewPicks = function (charlist) {
+	return A2(
+		elm$random$Random$generate,
+		author$project$Main$CharsRolled,
+		author$project$Main$twoDifferent(charlist));
+};
+var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
+var elm$core$Tuple$second = function (_n0) {
+	var y = _n0.b;
+	return y;
+};
 var author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -6264,21 +6270,21 @@ var author$project$Main$update = F2(
 						_Utils_update(
 							model,
 							{charList: charList}),
-						A2(
-							elm$random$Random$generate,
-							author$project$Main$CharsRolled,
-							author$project$Main$twoDifferent(charList)));
+						author$project$Main$generateNewPicks(charList));
 				}
 			case 'CharPicked':
-				var _char = msg.a;
+				var winChar = msg.a;
+				var loseChar = msg.b;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{lastPickedChar: _char}),
-					A2(
-						elm$random$Random$generate,
-						author$project$Main$CharsRolled,
-						author$project$Main$twoDifferent(model.charList)));
+						{lastNotPickedChar: loseChar, lastPickedChar: winChar}),
+					elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								author$project$Main$generateNewPicks(model.charList),
+								elm$core$Platform$Cmd$none
+							])));
 			default:
 				var tuple = msg.a;
 				return _Utils_Tuple2(
@@ -6288,9 +6294,10 @@ var author$project$Main$update = F2(
 					elm$core$Platform$Cmd$none);
 		}
 	});
-var author$project$Main$CharPicked = function (a) {
-	return {$: 'CharPicked', a: a};
-};
+var author$project$Main$CharPicked = F2(
+	function (a, b) {
+		return {$: 'CharPicked', a: a, b: b};
+	});
 var elm$url$Url$Builder$toQueryPair = function (_n0) {
 	var key = _n0.a;
 	var value = _n0.b;
@@ -6437,7 +6444,7 @@ var author$project$Main$view = function (model) {
 								author$project$Main$urlForChar(model.charOne)),
 								elm$html$Html$Attributes$alt('char1'),
 								elm$html$Html$Events$onClick(
-								author$project$Main$CharPicked(model.charOne))
+								A2(author$project$Main$CharPicked, model.charOne, model.charTwo))
 							]),
 						_List_Nil)
 					])),
@@ -6470,7 +6477,7 @@ var author$project$Main$view = function (model) {
 								author$project$Main$urlForChar(model.charTwo)),
 								elm$html$Html$Attributes$alt('char2'),
 								elm$html$Html$Events$onClick(
-								author$project$Main$CharPicked(model.charTwo))
+								A2(author$project$Main$CharPicked, model.charTwo, model.charOne))
 							]),
 						_List_Nil)
 					])),

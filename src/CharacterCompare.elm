@@ -4,6 +4,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode as Decode exposing (Decoder, field, string, index, int, map3, list)
+import Json.Encode as Encode
 import Url.Builder as Url
 import Random
 import Array
@@ -50,6 +51,7 @@ type alias Model =
   { charOne: Character
   , charTwo: Character
   , lastPickedChar : Character
+  , lastNotPickedChar: Character
   , charList: List Character
   }
 
@@ -79,20 +81,15 @@ init _ =
   char1 
   char2
   nullCharacter
+  nullCharacter
   []
   ,getCharacters
   )
 
 -- UPDATE
 
-
-
--- Cmd.batch
---             [getCharacters
---             , Random.generate NumbersRolled (randomCharNumbers [])]
-
 type Msg
-  = CharPicked Character
+  = CharPicked Character Character
   | GotCharacters (Result Http.Error (List Character))
   | CharsRolled (Character, Character)
 
@@ -106,12 +103,20 @@ update msg model =
             Err _ ->
                 (model, Cmd.none)
             Ok charList ->
-                ({model | charList = charList}, Random.generate CharsRolled (twoDifferent charList))
-    CharPicked char ->
-        ({model | lastPickedChar = char},
-        Random.generate CharsRolled (twoDifferent model.charList))
+                ({model | charList = charList}, generateNewPicks charList)
+    CharPicked winChar loseChar ->
+        ({model | lastPickedChar = winChar, lastNotPickedChar = loseChar},
+        Cmd.batch [generateNewPicks model.charList, Cmd.none])
     CharsRolled tuple ->
         ({model | charOne = Tuple.first tuple, charTwo = Tuple.second tuple}, Cmd.none)
+
+generateNewPicks : List Character -> Cmd Msg
+generateNewPicks charlist = 
+    Random.generate CharsRolled (twoDifferent charlist)
+
+-- voteWinner : Model -> Cmd Msg
+-- voteWinner = 
+
 
 -- SUBSCRIPTIONS
 
@@ -169,13 +174,13 @@ view model =
         ]
         , div [class "item", id "leftChar-item"]
         [
-            img [class "charImage", src (urlForChar model.charOne), alt "char1" , onClick (CharPicked model.charOne)][]
+            img [class "charImage", src (urlForChar model.charOne), alt "char1" , onClick (CharPicked model.charOne model.charTwo)][]
         ]
         , h1 [class "item", id "vstext-item"][text "VS"]
         , div [class "item", id "rightChar-item"]
         [
             
-            img [class "charImage", src (urlForChar model.charTwo), alt "char2", onClick (CharPicked model.charTwo)][]
+            img [class "charImage", src (urlForChar model.charTwo), alt "char2", onClick (CharPicked model.charTwo model.charOne)][]
         ]
         , div [class "item", id "underText-item"] [text (youPickedText model.lastPickedChar)]
         --, div [] [debugList model.charList]
@@ -200,6 +205,20 @@ getCharacters =
         url = "https://smashcountdown.azurewebsites.net/characters"
         , expect = Http.expectJson GotCharacters characterListDecoder 
     }
+
+-- postVote : Character -> Character -> Cmd Msg
+-- postVote winChar loseChar = 
+--     Http.post{url = "https://smashcountdown.azurewebsites.net/characters"
+--     , body = Http.emptyBody
+--     , expect = Http.expectJson GotItems (Decode.list (Decode.field "name" Decode.string))}
+    
+
+
+-- voteEncoder : Character -> Character  -> Encode.Value
+-- voteEncoder winChar loseChar = 
+--     Encode.object 
+--         [ ("name", Encode.object winChar.name)
+--         ]
 
 
 characterDecoder : Decoder Character
