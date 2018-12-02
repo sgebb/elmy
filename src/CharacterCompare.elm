@@ -63,7 +63,7 @@ type alias Character =
 type alias MatchResult = 
     { votesFor: Int
     , votesAgainst: Int
-    , opposition: Int}
+    , oppositionId: Int}
 
 nullCharacter : Character
 nullCharacter =
@@ -91,6 +91,7 @@ init _ =
 type Msg
   = CharPicked Character Character
   | GotCharacters (Result Http.Error (List Character))
+  | GotResult (Result Http.Error (MatchResult))
   | CharsRolled (Character, Character)
 
 
@@ -106,9 +107,11 @@ update msg model =
                 ({model | charList = charList}, generateNewPicks charList)
     CharPicked winChar loseChar ->
         ({model | lastPickedChar = winChar, lastNotPickedChar = loseChar},
-        Cmd.batch [generateNewPicks model.charList, Cmd.none])
+        Cmd.batch [generateNewPicks model.charList, castVote winChar loseChar])
     CharsRolled tuple ->
         ({model | charOne = Tuple.first tuple, charTwo = Tuple.second tuple}, Cmd.none)
+    GotResult matchResult ->
+        (model, Cmd.none)
 
 generateNewPicks : List Character -> Cmd Msg
 generateNewPicks charlist = 
@@ -131,6 +134,40 @@ bigSmashUrl char =
     Url.crossOrigin "https://www.smashbros.com" ["assets_v2","img","fighter",char,"main.png"] []
 
 -- STUFF 
+
+castVote : Character -> Character -> Cmd Msg
+castVote winChar loseChar =
+
+    let --griiisete
+        charen = case List.head (List.sortBy .id [winChar, loseChar]) of
+            Nothing ->
+                nullCharacter
+            Just char ->
+                char
+        charenWinner = (charen == winChar)
+        otherChar = 
+            if charenWinner then loseChar
+            else winChar
+        body = Http.jsonBody (voteEncoder otherChar charenWinner)
+    in
+
+    Http.post {
+        url = Url.crossOrigin "https://smashcountdown.azurewebsites.net" ["characters", String.fromInt(charen.id),"results"] []
+        , body = body
+        , expect = Http.expectJson GotResult resultDecoder}
+
+
+voteEncoder : Character -> Bool -> Encode.Value
+voteEncoder other winBool = 
+    let 
+        voteFor = if winBool then 1 else 0
+        voteAgainst = 1 - voteFor
+    in
+    Encode.object 
+        [ ("votesFor", Encode.int voteFor)
+        , ("votesAgainst", Encode.int voteAgainst)
+        , ("oppositionId", Encode.int other.id)
+        ]
 
 urlForChar : Character -> String
 urlForChar char = 
@@ -206,19 +243,7 @@ getCharacters =
         , expect = Http.expectJson GotCharacters characterListDecoder 
     }
 
--- postVote : Character -> Character -> Cmd Msg
--- postVote winChar loseChar = 
---     Http.post{url = "https://smashcountdown.azurewebsites.net/characters"
---     , body = Http.emptyBody
---     , expect = Http.expectJson GotItems (Decode.list (Decode.field "name" Decode.string))}
-    
 
-
--- voteEncoder : Character -> Character  -> Encode.Value
--- voteEncoder winChar loseChar = 
---     Encode.object 
---         [ ("name", Encode.object winChar.name)
---         ]
 
 
 characterDecoder : Decoder Character
@@ -238,7 +263,7 @@ resultDecoder =
     map3 MatchResult
         (field "votesFor" int)
         (field "votesAgainst" int)
-        (field "opposition" int)
+        (field "oppositionId" int)
 
 
 resultListDecoder : Decoder (List MatchResult)

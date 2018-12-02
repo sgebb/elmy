@@ -4580,8 +4580,8 @@ var author$project$Main$Character = F3(
 		return {id: id, name: name, results: results};
 	});
 var author$project$Main$MatchResult = F3(
-	function (votesFor, votesAgainst, opposition) {
-		return {opposition: opposition, votesAgainst: votesAgainst, votesFor: votesFor};
+	function (votesFor, votesAgainst, oppositionId) {
+		return {oppositionId: oppositionId, votesAgainst: votesAgainst, votesFor: votesFor};
 	});
 var elm$core$Array$branchFactor = 32;
 var elm$core$Array$Array_elm_builtin = F4(
@@ -5066,7 +5066,7 @@ var author$project$Main$resultDecoder = A4(
 	author$project$Main$MatchResult,
 	A2(elm$json$Json$Decode$field, 'votesFor', elm$json$Json$Decode$int),
 	A2(elm$json$Json$Decode$field, 'votesAgainst', elm$json$Json$Decode$int),
-	A2(elm$json$Json$Decode$field, 'opposition', elm$json$Json$Decode$int));
+	A2(elm$json$Json$Decode$field, 'oppositionId', elm$json$Json$Decode$int));
 var elm$json$Json$Decode$list = _Json_decodeList;
 var author$project$Main$resultListDecoder = elm$json$Json$Decode$list(author$project$Main$resultDecoder);
 var elm$json$Json$Decode$string = _Json_decodeString;
@@ -5980,17 +5980,60 @@ var elm$core$Platform$Sub$none = elm$core$Platform$Sub$batch(_List_Nil);
 var author$project$Main$subscriptions = function (model) {
 	return elm$core$Platform$Sub$none;
 };
-var author$project$Main$CharsRolled = function (a) {
-	return {$: 'CharsRolled', a: a};
+var author$project$Main$GotResult = function (a) {
+	return {$: 'GotResult', a: a};
 };
-var elm$random$Random$Generator = function (a) {
-	return {$: 'Generator', a: a};
+var elm$json$Json$Encode$int = _Json_wrap;
+var elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			elm$core$List$foldl,
+			F2(
+				function (_n0, obj) {
+					var k = _n0.a;
+					var v = _n0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
 };
-var elm$random$Random$constant = function (value) {
-	return elm$random$Random$Generator(
-		function (seed) {
-			return _Utils_Tuple2(value, seed);
-		});
+var author$project$Main$voteEncoder = F2(
+	function (other, winBool) {
+		var voteFor = winBool ? 1 : 0;
+		var voteAgainst = 1 - voteFor;
+		return elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'votesFor',
+					elm$json$Json$Encode$int(voteFor)),
+					_Utils_Tuple2(
+					'votesAgainst',
+					elm$json$Json$Encode$int(voteAgainst)),
+					_Utils_Tuple2(
+					'oppositionId',
+					elm$json$Json$Encode$int(other.id))
+				]));
+	});
+var elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return elm$core$Maybe$Just(x);
+	} else {
+		return elm$core$Maybe$Nothing;
+	}
+};
+var elm$core$List$sortBy = _List_sortBy;
+var elm$http$Http$jsonBody = function (value) {
+	return A2(
+		_Http_pair,
+		'application/json',
+		A2(elm$json$Json$Encode$encode, 0, value));
+};
+var elm$http$Http$post = function (r) {
+	return elm$http$Http$request(
+		{body: r.body, expect: r.expect, headers: _List_Nil, method: 'POST', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
 };
 var elm$core$List$map = F2(
 	function (f, xs) {
@@ -6006,6 +6049,75 @@ var elm$core$List$map = F2(
 			_List_Nil,
 			xs);
 	});
+var elm$url$Url$Builder$toQueryPair = function (_n0) {
+	var key = _n0.a;
+	var value = _n0.b;
+	return key + ('=' + value);
+};
+var elm$url$Url$Builder$toQuery = function (parameters) {
+	if (!parameters.b) {
+		return '';
+	} else {
+		return '?' + A2(
+			elm$core$String$join,
+			'&',
+			A2(elm$core$List$map, elm$url$Url$Builder$toQueryPair, parameters));
+	}
+};
+var elm$url$Url$Builder$crossOrigin = F3(
+	function (prePath, pathSegments, parameters) {
+		return prePath + ('/' + (A2(elm$core$String$join, '/', pathSegments) + elm$url$Url$Builder$toQuery(parameters)));
+	});
+var author$project$Main$castVote = F2(
+	function (winChar, loseChar) {
+		var charen = function () {
+			var _n0 = elm$core$List$head(
+				A2(
+					elm$core$List$sortBy,
+					function ($) {
+						return $.id;
+					},
+					_List_fromArray(
+						[winChar, loseChar])));
+			if (_n0.$ === 'Nothing') {
+				return author$project$Main$nullCharacter;
+			} else {
+				var _char = _n0.a;
+				return _char;
+			}
+		}();
+		var charenWinner = _Utils_eq(charen, winChar);
+		var otherChar = charenWinner ? loseChar : winChar;
+		var body = elm$http$Http$jsonBody(
+			A2(author$project$Main$voteEncoder, otherChar, charenWinner));
+		return elm$http$Http$post(
+			{
+				body: body,
+				expect: A2(elm$http$Http$expectJson, author$project$Main$GotResult, author$project$Main$resultDecoder),
+				url: A3(
+					elm$url$Url$Builder$crossOrigin,
+					'https://smashcountdown.azurewebsites.net',
+					_List_fromArray(
+						[
+							'characters',
+							elm$core$String$fromInt(charen.id),
+							'results'
+						]),
+					_List_Nil)
+			});
+	});
+var author$project$Main$CharsRolled = function (a) {
+	return {$: 'CharsRolled', a: a};
+};
+var elm$random$Random$Generator = function (a) {
+	return {$: 'Generator', a: a};
+};
+var elm$random$Random$constant = function (value) {
+	return elm$random$Random$Generator(
+		function (seed) {
+			return _Utils_Tuple2(value, seed);
+		});
+};
 var elm$random$Random$addOne = function (value) {
 	return _Utils_Tuple2(1, value);
 };
@@ -6283,39 +6395,23 @@ var author$project$Main$update = F2(
 						_List_fromArray(
 							[
 								author$project$Main$generateNewPicks(model.charList),
-								elm$core$Platform$Cmd$none
+								A2(author$project$Main$castVote, winChar, loseChar)
 							])));
-			default:
+			case 'CharsRolled':
 				var tuple = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{charOne: tuple.a, charTwo: tuple.b}),
 					elm$core$Platform$Cmd$none);
+			default:
+				var matchResult = msg.a;
+				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
 var author$project$Main$CharPicked = F2(
 	function (a, b) {
 		return {$: 'CharPicked', a: a, b: b};
-	});
-var elm$url$Url$Builder$toQueryPair = function (_n0) {
-	var key = _n0.a;
-	var value = _n0.b;
-	return key + ('=' + value);
-};
-var elm$url$Url$Builder$toQuery = function (parameters) {
-	if (!parameters.b) {
-		return '';
-	} else {
-		return '?' + A2(
-			elm$core$String$join,
-			'&',
-			A2(elm$core$List$map, elm$url$Url$Builder$toQueryPair, parameters));
-	}
-};
-var elm$url$Url$Builder$crossOrigin = F3(
-	function (prePath, pathSegments, parameters) {
-		return prePath + ('/' + (A2(elm$core$String$join, '/', pathSegments) + elm$url$Url$Builder$toQuery(parameters)));
 	});
 var author$project$Main$bigSmashUrl = function (_char) {
 	return A3(
