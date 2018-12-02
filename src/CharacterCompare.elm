@@ -94,7 +94,7 @@ init _ =
 type Msg
   = CharPicked Character
   | GotCharacters (Result Http.Error (List Character))
-  | NumbersRolled (Int, Int)
+  | CharsRolled (Character, Character)
 
 
 
@@ -106,12 +106,12 @@ update msg model =
             Err _ ->
                 (model, Cmd.none)
             Ok charList ->
-                ({model | charList = charList}, Random.generate NumbersRolled (randomCharNumbers charList))
+                ({model | charList = charList}, Random.generate CharsRolled (twoDifferent charList))
     CharPicked char ->
         ({model | lastPickedChar = char},
-        Random.generate NumbersRolled (randomCharNumbers model.charList))
-    NumbersRolled intTuple ->
-        ({model | charOne = charNumber (Tuple.first intTuple) model, charTwo = charNumber (Tuple.second intTuple) model}, Cmd.none)
+        Random.generate CharsRolled (twoDifferent model.charList))
+    CharsRolled tuple ->
+        ({model | charOne = Tuple.first tuple, charTwo = Tuple.second tuple}, Cmd.none)
 
 -- SUBSCRIPTIONS
 
@@ -136,21 +136,24 @@ urlName : Character -> String
 urlName char =
     String.toLower (String.map(\c -> if c == ' ' then '_' else c) char.name)
 
+takeAny : List Character -> Random.Generator Character
+takeAny list =
+    case list of
+        first :: rest ->
+            Random.uniform first rest
 
-randomCharNumbers : List Character -> Random.Generator (Int, Int)
-randomCharNumbers charList = 
-    Random.pair (Random.int 0 ((List.length charList) - 1)) (Random.int 0 ((List.length charList) - 1))
+        [] ->
+            -- won't happen
+            Random.constant nullCharacter
 
-charNumber : Int -> Model ->  Character
-charNumber int model   =
-    let 
-        maybeChar = Array.get int (Array.fromList model.charList)
-    in
-        case maybeChar of
-            Nothing ->
-                nullCharacter
-            Just char ->
-                char
+twoDifferent : List Character -> Random.Generator (Character,  Character)
+twoDifferent charlist =
+    takeAny charlist
+        |> Random.andThen
+            (\first ->
+                Random.map (\second ->  ( first, second )) <|
+                    takeAny (List.filter (\x -> x /= first) charlist)
+            )
 
 
 -- VIEW
@@ -222,4 +225,5 @@ resultDecoder =
 resultListDecoder : Decoder (List MatchResult)
 resultListDecoder =
     list resultDecoder
+
 
