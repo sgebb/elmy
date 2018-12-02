@@ -3,12 +3,13 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder, field, string, index, int, map3, list)
 import Url.Builder as Url
-import Css exposing (..)
 import Random
 import Array
 import Browser.Dom as Dom
+import Task
+import Tuple
 
 
 
@@ -27,35 +28,49 @@ main =
 
 -- MODEL
 
-characterList : List Character
-characterList = 
-    List.map Character ["Mario","Link", "Kirby", "Yoshi","Donkey Kong","Samus"
-    ,"Fox","Pikachu","Jigglypuff","Captain Falcon","Ness","Luigi", "Peach","Bowser"
-    ,"Zelda","Sheik","Pichu","Falco","Dr Mario", "Ice Climbers", "Young Link"
-    , "Marth","Ganondorf","Mewtwo","Roy","Mr Game and Watch","Pit","Meta Knight"
-    ,"Wario","Lucas","Ike","Pokemon Trainer","Snake","Sonic","Zero Suit Samus"
-    ,"Olimar","Diddy Kong","Lucario","Toon Link","Wolf","ROB","Mega Man"
-    ,"Rosalina and Luma","Villager","Palutena","Little Mac","Dark Pit","Lucina"
-    ,"Greninja","Wii Fit Trainer","Pac-Man","Robin","Bowser Jr","Shulk","Ryu","Cloud"
-    ,"Corrin","Bayonetta","Inkling","Ridley","Simon Belmont","Daisy","Richter","Chrom"
-    ,"Dark Samus","King K Rool","Isabelle","Ken","Incineroar"]
+-- characterList : List Character
+-- characterList = 
+--     List.map Character  ["Mario","Link", "Kirby", "Yoshi","Donkey Kong","Samus"
+--     ,"Fox","Pikachu","Jigglypuff","Captain Falcon","Ness","Luigi", "Peach","Bowser"
+--     ,"Zelda","Sheik","Pichu","Falco","Dr Mario", "Ice Climbers", "Young Link"
+--     , "Marth","Ganondorf","Mewtwo","Roy","Mr Game and Watch","Pit","Meta Knight"
+--     ,"Wario","Lucas","Ike","Pokemon Trainer","Snake","Sonic","Zero Suit Samus"
+--     ,"Olimar","Diddy Kong","Lucario","Toon Link","Wolf","ROB","Mega Man"
+--     ,"Rosalina and Luma","Villager","Palutena","Little Mac","Dark Pit","Lucina"
+--     ,"Greninja","Wii Fit Trainer","Pac-Man","Robin","Bowser Jr","Shulk","Ryu","Cloud"
+--     ,"Corrin","Bayonetta","Inkling","Ridley","Simon Belmont","Daisy","Richter","Chrom"
+--     ,"Dark Samus","King K Rool","Isabelle","Ken","Incineroar"] []
+
+-- Mocklist that works with new model
+-- characterList : List Character
+-- characterList =
+--     [Character 1 "Mario" [], Character 2 "Bowser Jr" [], Character 3 "Mewtwo" []]
 
 type alias Model =
   { charOne: Character
   , charTwo: Character
   , lastPickedChar : Character
+  , charList: List Character
   }
 
 type alias Character = 
-    { name: String}
+    { id: Int,
+    name: String,
+    results: List MatchResult}
+
+type alias MatchResult = 
+    { votesFor: Int
+    , votesAgainst: Int
+    , opposition: Int}
 
 nullCharacter : Character
 nullCharacter =
-    Character ""
+    Character 0 "" []
 
 init : () -> (Model, Cmd Msg)
 init _ =
-    let
+    let 
+        a = Cmd.batch [getCharacters]
         char1 = nullCharacter
         char2 = nullCharacter
     in
@@ -64,37 +79,39 @@ init _ =
   char1 
   char2
   nullCharacter
-  , Cmd.batch
-            [Random.generate RollCharOne randomCharNumber
-            ,Random.generate RollCharTwo randomCharNumber]
+  []
+  ,getCharacters
   )
 
 -- UPDATE
 
 
 
+-- Cmd.batch
+--             [getCharacters
+--             , Random.generate NumbersRolled (randomCharNumbers [])]
+
 type Msg
-  = CharacterPicked Character
-  | RollCharOne Int
-  | RollCharTwo Int
+  = CharPicked Character
+  | GotCharacters (Result Http.Error (List Character))
+  | NumbersRolled (Int, Int)
+
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    CharacterPicked char->
+    GotCharacters result ->
+        case result of
+            Err _ ->
+                (model, Cmd.none)
+            Ok charList ->
+                ({model | charList = charList}, Random.generate NumbersRolled (randomCharNumbers charList))
+    CharPicked char ->
         ({model | lastPickedChar = char},
-         Cmd.batch
-            [Random.generate RollCharOne randomCharNumber
-            ,Random.generate RollCharTwo randomCharNumber])
-    RollCharOne int ->
-        ({model | charOne = charNumber int},
-        Cmd.none)
-    RollCharTwo int ->
-         ({model | charTwo = charNumber int},
-        Cmd.none)
-
-
+        Random.generate NumbersRolled (randomCharNumbers model.charList))
+    NumbersRolled intTuple ->
+        ({model | charOne = charNumber (Tuple.first intTuple) model, charTwo = charNumber (Tuple.second intTuple) model}, Cmd.none)
 
 -- SUBSCRIPTIONS
 
@@ -102,15 +119,6 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.none
-
-
--- HTTP
---"https://www.smashbros.com/assets_v2/img/fighter/thumb_v/mario.png"
-toSmashUrl : String -> String
-toSmashUrl char =
-  Url.crossOrigin "https://www.smashbros.com" ["assets_v2","img","fighter","thumb_v",char ++ ".png"]
-  []
-
 
 --"https://www.smashbros.com/assets_v2/img/fighter/isabelle/main.png"
 bigSmashUrl : String -> String
@@ -128,14 +136,15 @@ urlName : Character -> String
 urlName char =
     String.toLower (String.map(\c -> if c == ' ' then '_' else c) char.name)
 
-randomCharNumber : Random.Generator Int
-randomCharNumber =
-    Random.int 0 ((List.length characterList - 1))
 
-charNumber : Int -> Character
-charNumber int   =
+randomCharNumbers : List Character -> Random.Generator (Int, Int)
+randomCharNumbers charList = 
+    Random.pair (Random.int 0 ((List.length charList) - 1)) (Random.int 0 ((List.length charList) - 1))
+
+charNumber : Int -> Model ->  Character
+charNumber int model   =
     let 
-        maybeChar = Array.get int (Array.fromList (List.filter charNotUsed characterList))
+        maybeChar = Array.get int (Array.fromList model.charList)
     in
         case maybeChar of
             Nothing ->
@@ -143,10 +152,6 @@ charNumber int   =
             Just char ->
                 char
 
--- Dont want to show the same ones again. Dropped for now
-charNotUsed : Character  -> Bool
-charNotUsed char =
-    True
 
 -- VIEW
 
@@ -161,15 +166,17 @@ view model =
         ]
         , div [class "item", id "leftChar-item"]
         [
-            img [class "charImage", src (urlForChar model.charOne), alt "char1" , onClick (CharacterPicked model.charOne)][]
+            img [class "charImage", src (urlForChar model.charOne), alt "char1" , onClick (CharPicked model.charOne)][]
         ]
         , h1 [class "item", id "vstext-item"][text "VS"]
         , div [class "item", id "rightChar-item"]
         [
             
-            img [class "charImage", src (urlForChar model.charTwo), alt "char2", onClick (CharacterPicked model.charTwo)][]
+            img [class "charImage", src (urlForChar model.charTwo), alt "char2", onClick (CharPicked model.charTwo)][]
         ]
         , div [class "item", id "underText-item"] [text (youPickedText model.lastPickedChar)]
+        --, div [] [debugList model.charList]
+        --, div [] [text (model.charOne.name ++ model.charTwo.name)]
     ]
 
 youPickedText : Character -> String
@@ -178,4 +185,41 @@ youPickedText char =
         ""
     else
         "You picked " ++ char.name
+
+debugList: List Character -> Html Msg
+debugList charList =     
+    ul [] (List.map (\l -> li [] [text l.name]) charList) 
+
+-- HTTP
+getCharacters : Cmd Msg
+getCharacters =
+    Http.get{ 
+        url = "https://smashcountdown.azurewebsites.net/characters"
+        , expect = Http.expectJson GotCharacters characterListDecoder 
+    }
+
+
+characterDecoder : Decoder Character
+characterDecoder = 
+     map3 Character
+        (field "id" int)
+        (field "name" string)
+        (field "results" resultListDecoder)
+
+characterListDecoder : Decoder (List Character)
+characterListDecoder =
+    list characterDecoder
+
+
+resultDecoder: Decoder MatchResult
+resultDecoder =
+    map3 MatchResult
+        (field "votesFor" int)
+        (field "votesAgainst" int)
+        (field "opposition" int)
+
+
+resultListDecoder : Decoder (List MatchResult)
+resultListDecoder =
+    list resultDecoder
 
