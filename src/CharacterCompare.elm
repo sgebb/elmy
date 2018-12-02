@@ -5,9 +5,10 @@ import Html.Events exposing (..)
 import Http
 import Json.Decode as Decode
 import Url.Builder as Url
-import Styles exposing (..)
+import Css exposing (..)
 import Random
 import Array
+import Browser.Dom as Dom
 
 
 
@@ -28,7 +29,16 @@ main =
 
 characterList : List Character
 characterList = 
-    List.map Character ["Mario","Luigi","Bowser","Bowser Jr", "Pit", "Dark Pit", "Lucas", "Ness"]
+    List.map Character ["Mario","Link", "Kirby", "Yoshi","Donkey Kong","Samus"
+    ,"Fox","Pikachu","Jigglypuff","Captain Falcon","Ness","Luigi", "Peach","Bowser"
+    ,"Zelda","Sheik","Pichu","Falco","Dr Mario", "Ice Climbers", "Young Link"
+    , "Marth","Ganondorf","Mewtwo","Roy","Mr Game and Watch","Pit","Meta Knight"
+    ,"Wario","Lucas","Ike","Pokemon Trainer","Snake","Sonic","Zero Suit Samus"
+    ,"Olimar","Diddy Kong","Lucario","Toon Link","Wolf","ROB","Mega Man"
+    ,"Rosalina and Luma","Villager","Palutena","Little Mac","Dark Pit","Lucina"
+    ,"Greninja","Wii Fit Trainer","Pac-Man","Robin","Bowser Jr","Shulk","Ryu","Cloud"
+    ,"Corrin","Bayonetta","Inkling","Ridley","Simon Belmont","Daisy","Richter","Chrom"
+    ,"Dark Samus","King K Rool","Isabelle","Ken","Incineroar"]
 
 type alias Model =
   { charOne: Character
@@ -39,18 +49,24 @@ type alias Model =
 type alias Character = 
     { name: String}
 
+nullCharacter : Character
+nullCharacter =
+    Character ""
+
 init : () -> (Model, Cmd Msg)
 init _ =
     let
-        char1 = Character "Mario"
-        char2 = Character "Bowser Jr"
+        char1 = nullCharacter
+        char2 = nullCharacter
     in
     
   ( Model 
   char1 
   char2
-  char1
-  , Cmd.none
+  nullCharacter
+  , Cmd.batch
+            [Random.generate RollCharOne randomCharNumber
+            ,Random.generate RollCharTwo randomCharNumber]
   )
 
 -- UPDATE
@@ -69,8 +85,8 @@ update msg model =
     CharacterPicked char->
         ({model | lastPickedChar = char},
          Cmd.batch
-            [Random.generate RollCharOne randomInt
-            ,Random.generate RollCharTwo randomInt])
+            [Random.generate RollCharOne randomCharNumber
+            ,Random.generate RollCharTwo randomCharNumber])
     RollCharOne int ->
         ({model | charOne = charNumber int},
         Cmd.none)
@@ -89,27 +105,32 @@ subscriptions model =
 
 
 -- HTTP
-
 --"https://www.smashbros.com/assets_v2/img/fighter/thumb_v/mario.png"
 toSmashUrl : String -> String
 toSmashUrl char =
   Url.crossOrigin "https://www.smashbros.com" ["assets_v2","img","fighter","thumb_v",char ++ ".png"]
   []
 
+
+--"https://www.smashbros.com/assets_v2/img/fighter/isabelle/main.png"
+bigSmashUrl : String -> String
+bigSmashUrl char = 
+    Url.crossOrigin "https://www.smashbros.com" ["assets_v2","img","fighter",char,"main.png"] []
+
 -- STUFF 
 
 urlForChar : Character -> String
 urlForChar char = 
-    toSmashUrl (urlName char)
+    bigSmashUrl (urlName char)
 
     
 urlName : Character -> String
 urlName char =
     String.toLower (String.map(\c -> if c == ' ' then '_' else c) char.name)
 
-randomInt : Random.Generator Int
-randomInt =
-    Random.int 1 (List.length characterList)
+randomCharNumber : Random.Generator Int
+randomCharNumber =
+    Random.int 0 ((List.length characterList - 1))
 
 charNumber : Int -> Character
 charNumber int   =
@@ -118,7 +139,7 @@ charNumber int   =
     in
         case maybeChar of
             Nothing ->
-                Character "Mario"
+                nullCharacter
             Just char ->
                 char
 
@@ -127,25 +148,34 @@ charNotUsed : Character  -> Bool
 charNotUsed char =
     True
 
-    -- VIEW
+-- VIEW
 
 
 view : Model -> Html Msg
 view model =
-    div []  
+    div [ class  "container" ]
     [
-    div [class "gridContainer", style "display" "flex"]
-        [ 
-        div [class "gridElement"]
+        header [class "item", id "header-item"]
         [
-            img [src (urlForChar model.charOne), alt "char1" , onClick (CharacterPicked model.charOne)][]
+            h1[][text "Who wins?"]
         ]
-        , div [class "gridElement"]
+        , div [class "item", id "leftChar-item"]
+        [
+            img [class "charImage", src (urlForChar model.charOne), alt "char1" , onClick (CharacterPicked model.charOne)][]
+        ]
+        , h1 [class "item", id "vstext-item"][text "VS"]
+        , div [class "item", id "rightChar-item"]
         [
             
-            img [src (urlForChar model.charTwo), alt "char2", onClick (CharacterPicked model.charTwo)][]
+            img [class "charImage", src (urlForChar model.charTwo), alt "char2", onClick (CharacterPicked model.charTwo)][]
         ]
-        ]
-    , div []
-    [text model.lastPickedChar.name]
+        , div [class "item", id "underText-item"] [text (youPickedText model.lastPickedChar)]
     ]
+
+youPickedText : Character -> String
+youPickedText char =
+    if char == nullCharacter then
+        ""
+    else
+        "You picked " ++ char.name
+
