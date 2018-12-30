@@ -135,40 +135,6 @@ bigSmashUrl char =
 
 -- STUFF 
 
-castVote : Character -> Character -> Cmd Msg
-castVote winChar loseChar =
-
-    let --griiisete
-        charen = case List.head (List.sortBy .id [winChar, loseChar]) of
-            Nothing ->
-                nullCharacter
-            Just char ->
-                char
-        charenWinner = (charen == winChar)
-        otherChar = 
-            if charenWinner then loseChar
-            else winChar
-        body = Http.jsonBody (voteEncoder otherChar charenWinner)
-    in
-
-    Http.post {
-        url = Url.crossOrigin "https://smashcountdown.azurewebsites.net" ["characters", String.fromInt(charen.id),"results"] []
-        , body = body
-        , expect = Http.expectJson GotResult resultDecoder}
-
-
-voteEncoder : Character -> Bool -> Encode.Value
-voteEncoder other winBool = 
-    let 
-        voteFor = if winBool then 1 else 0
-        voteAgainst = 1 - voteFor
-    in
-    Encode.object 
-        [ ("votesFor", Encode.int voteFor)
-        , ("votesAgainst", Encode.int voteAgainst)
-        , ("oppositionId", Encode.int other.id)
-        ]
-
 urlForChar : Character -> String
 urlForChar char = 
     bigSmashUrl (urlName char)
@@ -203,7 +169,7 @@ twoDifferent charlist =
 
 view : Model -> Html Msg
 view model =
-    div [ class  "container" ]
+    div [ class  "container", id "site" ]
     [
         header [class "item", id "header-item"]
         [
@@ -211,13 +177,13 @@ view model =
         ]
         , div [class "item", id "leftChar-item"]
         [
-            img [class "charImage", src (urlForChar model.charOne), alt "char1" , onClick (CharPicked model.charOne model.charTwo)][]
+            img [class "charImage",  src (urlForChar model.charOne), alt "char1" , onClick (CharPicked model.charOne model.charTwo)][]
         ]
         , h1 [class "item", id "vstext-item"][text "VS"]
         , div [class "item", id "rightChar-item"]
         [
             
-            img [class "charImage", src (urlForChar model.charTwo), alt "char2", onClick (CharPicked model.charTwo model.charOne)][]
+            img [class "charImage",  src (urlForChar model.charTwo), alt "char2", onClick (CharPicked model.charTwo model.charOne)][]
         ]
         , div [class "item", id "underText-item"] [text (youPickedText model.lastPickedChar)]
         --, div [] [debugList model.charList]
@@ -243,8 +209,30 @@ getCharacters =
         , expect = Http.expectJson GotCharacters characterListDecoder 
     }
 
+castVote : Character -> Character -> Cmd Msg
+castVote winChar loseChar =
+
+    let --griiisete
+        charen = case List.head (List.sortBy .id [winChar, loseChar]) of
+            Nothing ->
+                nullCharacter
+            Just char ->
+                char
+        charenWinner = (charen == winChar)
+        otherChar = 
+            if charenWinner then loseChar
+            else winChar
+        body = Http.jsonBody (voteEncoder otherChar charenWinner)
+    in
+
+    Http.post {
+        url = Url.crossOrigin "https://smashcountdown.azurewebsites.net" ["characters", String.fromInt(charen.id),"results"] []
+        , body = body
+        , expect = Http.expectJson GotResult resultDecoder}
 
 
+
+-- DECODERS
 
 characterDecoder : Decoder Character
 characterDecoder = 
@@ -270,4 +258,14 @@ resultListDecoder : Decoder (List MatchResult)
 resultListDecoder =
     list resultDecoder
 
-
+voteEncoder : Character -> Bool -> Encode.Value
+voteEncoder other winBool = 
+    let 
+        voteFor = if winBool then 1 else 0
+        voteAgainst = 1 - voteFor
+    in
+    Encode.object 
+        [ ("votesFor", Encode.int voteFor)
+        , ("votesAgainst", Encode.int voteAgainst)
+        , ("oppositionId", Encode.int other.id)
+        ]
