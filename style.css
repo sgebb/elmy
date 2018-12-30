@@ -80,3 +80,35 @@
     max-width: 400px; 
     max-height: 400px;
 }
+
+body{
+    background-color: #ddc2c2
+}
+
+/* Pulse Grow */
+@-webkit-keyframes hvr-pulse-grow {
+    to {
+      -webkit-transform: scale(1.02);
+      transform: scale(1.02);
+    }
+  }
+  @keyframes hvr-pulse-grow {
+    to {
+      -webkit-transform: scale(1.02);
+      transform: scale(1.02);
+    }
+  }
+
+  img:hover, img:focus, img:active {
+    -webkit-animation-name: hvr-pulse-grow;
+    animation-name: hvr-pulse-grow;
+    -webkit-animation-duration: 0.3s;
+    animation-duration: 0.3s;
+    -webkit-animation-timing-function: linear;
+    animation-timing-function: linear;
+    -webkit-animation-iteration-count: infinite;
+    animation-iteration-count: infinite;
+    -webkit-animation-direction: alternate;
+    animation-direction: alternate;
+  }
+  
