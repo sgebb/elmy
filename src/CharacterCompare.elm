@@ -3,7 +3,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
-import Json.Decode as Decode exposing (Decoder, field, string, index, int, map3, list)
+import Json.Decode as Decode exposing (Decoder, field, string, index, int, map2, list)
 import Json.Encode as Encode
 import Url.Builder as Url
 import Random
@@ -53,21 +53,24 @@ type alias Model =
   , lastPickedChar : Character
   , lastNotPickedChar: Character
   , charList: List Character
+  , lastResult: MatchResult
   }
 
 type alias Character = 
     { id: Int,
-    name: String,
-    results: List MatchResult}
+    name: String}
 
 type alias MatchResult = 
-    { votesFor: Int
-    , votesAgainst: Int
-    , oppositionId: Int}
+    { winVotes: Int
+    , loseVotes: Int}
 
 nullCharacter : Character
 nullCharacter =
-    Character 0 "" []
+    Character 0 ""
+
+nullResult : MatchResult
+nullResult = 
+    MatchResult 0 0
 
 init : () -> (Model, Cmd Msg)
 init _ =
@@ -83,6 +86,7 @@ init _ =
   nullCharacter
   nullCharacter
   []
+  nullResult
   ,getCharacters
   )
 
@@ -110,8 +114,12 @@ update msg model =
         Cmd.batch [generateNewPicks model.charList, castVote winChar loseChar])
     CharsRolled tuple ->
         ({model | charOne = Tuple.first tuple, charTwo = Tuple.second tuple}, Cmd.none)
-    GotResult matchResult ->
-        (model, Cmd.none)
+    GotResult result ->
+        case result of
+            Err _ ->
+                ({model | lastResult = nullResult}, Cmd.none)
+            Ok res ->
+                ({model | lastResult = res}, Cmd.none)
 
 generateNewPicks : List Character -> Cmd Msg
 generateNewPicks charlist = 
@@ -186,17 +194,17 @@ view model =
             
             img [class "charImage",  src (urlForChar model.charTwo), alt "char2", onClick (CharPicked model.charTwo model.charOne)][]
         ]
-        , div [class "item", id "underText-item"] [text (youPickedText model.lastPickedChar)]
+        , div [class "item", id "underText-item"] [text (youPickedText model.lastPickedChar model.lastResult)]
         --, div [] [debugList model.charList]
         --, div [] [text (model.charOne.name ++ model.charTwo.name)]
     ]
 
-youPickedText : Character -> String
-youPickedText char =
+youPickedText : Character -> MatchResult -> String
+youPickedText char res =
     if char == nullCharacter then
         ""
     else
-        "You picked " ++ char.name
+        "You picked " ++ char.name ++". Total votes for " ++ char.name ++ ": " ++ String.fromInt(res.winVotes) ++ ". Votes against: " ++ String.fromInt(res.loseVotes)
 
 debugList: List Character -> Html Msg
 debugList charList =     
@@ -213,21 +221,12 @@ getCharacters =
 castVote : Character -> Character -> Cmd Msg
 castVote winChar loseChar =
 
-    let --griiisete
-        charen = case List.head (List.sortBy .id [winChar, loseChar]) of
-            Nothing ->
-                nullCharacter
-            Just char ->
-                char
-        charenWinner = (charen == winChar)
-        otherChar = 
-            if charenWinner then loseChar
-            else winChar
-        body = Http.jsonBody (voteEncoder otherChar charenWinner)
+    let --
+        body = Http.jsonBody (voteEncoder winChar loseChar)
     in
 
     Http.post {
-        url = Url.crossOrigin "https://smashcountdown.azurewebsites.net" ["characters", String.fromInt(charen.id),"results"] []
+        url = Url.crossOrigin "https://chars.azurewebsites.net" ["api","Vote"] []
         , body = body
         , expect = Http.expectJson GotResult resultDecoder}
 
@@ -237,10 +236,9 @@ castVote winChar loseChar =
 
 characterDecoder : Decoder Character
 characterDecoder = 
-     map3 Character
+     map2 Character
         (field "id" int)
         (field "name" string)
-        (field "results" resultListDecoder)
 
 characterListDecoder : Decoder (List Character)
 characterListDecoder =
@@ -249,24 +247,18 @@ characterListDecoder =
 
 resultDecoder: Decoder MatchResult
 resultDecoder =
-    map3 MatchResult
-        (field "votesFor" int)
-        (field "votesAgainst" int)
-        (field "oppositionId" int)
+    map2 MatchResult
+        (field "winVotes" int)
+        (field "loseVotes" int)
 
 
 resultListDecoder : Decoder (List MatchResult)
 resultListDecoder =
     list resultDecoder
 
-voteEncoder : Character -> Bool -> Encode.Value
-voteEncoder other winBool = 
-    let 
-        voteFor = if winBool then 1 else 0
-        voteAgainst = 1 - voteFor
-    in
+voteEncoder : Character -> Character -> Encode.Value
+voteEncoder winChar loseChar = 
     Encode.object 
-        [ ("votesFor", Encode.int voteFor)
-        , ("votesAgainst", Encode.int voteAgainst)
-        , ("oppositionId", Encode.int other.id)
+        [ ("winner", Encode.string (urlName winChar))
+        , ("loser", Encode.string (urlName loseChar))
         ]

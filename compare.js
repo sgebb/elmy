@@ -4568,20 +4568,16 @@ function _Browser_load(url)
 		}
 	}));
 }
-var author$project$Main$Model = F5(
-	function (charOne, charTwo, lastPickedChar, lastNotPickedChar, charList) {
-		return {charList: charList, charOne: charOne, charTwo: charTwo, lastNotPickedChar: lastNotPickedChar, lastPickedChar: lastPickedChar};
+var author$project$Main$Model = F6(
+	function (charOne, charTwo, lastPickedChar, lastNotPickedChar, charList, lastResult) {
+		return {charList: charList, charOne: charOne, charTwo: charTwo, lastNotPickedChar: lastNotPickedChar, lastPickedChar: lastPickedChar, lastResult: lastResult};
 	});
 var author$project$Main$GotCharacters = function (a) {
 	return {$: 'GotCharacters', a: a};
 };
-var author$project$Main$Character = F3(
-	function (id, name, results) {
-		return {id: id, name: name, results: results};
-	});
-var author$project$Main$MatchResult = F3(
-	function (votesFor, votesAgainst, oppositionId) {
-		return {oppositionId: oppositionId, votesAgainst: votesAgainst, votesFor: votesFor};
+var author$project$Main$Character = F2(
+	function (id, name) {
+		return {id: id, name: name};
 	});
 var elm$core$Array$branchFactor = 32;
 var elm$core$Array$Array_elm_builtin = F4(
@@ -5060,22 +5056,14 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 	});
 var elm$json$Json$Decode$field = _Json_decodeField;
 var elm$json$Json$Decode$int = _Json_decodeInt;
-var elm$json$Json$Decode$map3 = _Json_map3;
-var author$project$Main$resultDecoder = A4(
-	elm$json$Json$Decode$map3,
-	author$project$Main$MatchResult,
-	A2(elm$json$Json$Decode$field, 'votesFor', elm$json$Json$Decode$int),
-	A2(elm$json$Json$Decode$field, 'votesAgainst', elm$json$Json$Decode$int),
-	A2(elm$json$Json$Decode$field, 'oppositionId', elm$json$Json$Decode$int));
-var elm$json$Json$Decode$list = _Json_decodeList;
-var author$project$Main$resultListDecoder = elm$json$Json$Decode$list(author$project$Main$resultDecoder);
+var elm$json$Json$Decode$map2 = _Json_map2;
 var elm$json$Json$Decode$string = _Json_decodeString;
-var author$project$Main$characterDecoder = A4(
-	elm$json$Json$Decode$map3,
+var author$project$Main$characterDecoder = A3(
+	elm$json$Json$Decode$map2,
 	author$project$Main$Character,
 	A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
-	A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string),
-	A2(elm$json$Json$Decode$field, 'results', author$project$Main$resultListDecoder));
+	A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string));
+var elm$json$Json$Decode$list = _Json_decodeList;
 var author$project$Main$characterListDecoder = elm$json$Json$Decode$list(author$project$Main$characterDecoder);
 var elm$core$Result$mapError = F2(
 	function (f, result) {
@@ -5963,7 +5951,12 @@ var author$project$Main$getCharacters = elm$http$Http$get(
 		expect: A2(elm$http$Http$expectJson, author$project$Main$GotCharacters, author$project$Main$characterListDecoder),
 		url: 'https://smashcountdown.azurewebsites.net/characters'
 	});
-var author$project$Main$nullCharacter = A3(author$project$Main$Character, 0, '', _List_Nil);
+var author$project$Main$nullCharacter = A2(author$project$Main$Character, 0, '');
+var author$project$Main$MatchResult = F2(
+	function (winVotes, loseVotes) {
+		return {loseVotes: loseVotes, winVotes: winVotes};
+	});
+var author$project$Main$nullResult = A2(author$project$Main$MatchResult, 0, 0);
 var elm$core$Platform$Cmd$batch = _Platform_batch;
 var author$project$Main$init = function (_n0) {
 	var char2 = author$project$Main$nullCharacter;
@@ -5972,7 +5965,7 @@ var author$project$Main$init = function (_n0) {
 		_List_fromArray(
 			[author$project$Main$getCharacters]));
 	return _Utils_Tuple2(
-		A5(author$project$Main$Model, char1, char2, author$project$Main$nullCharacter, author$project$Main$nullCharacter, _List_Nil),
+		A6(author$project$Main$Model, char1, char2, author$project$Main$nullCharacter, author$project$Main$nullCharacter, _List_Nil, author$project$Main$nullResult),
 		author$project$Main$getCharacters);
 };
 var elm$core$Platform$Sub$batch = _Platform_batch;
@@ -5983,7 +5976,24 @@ var author$project$Main$subscriptions = function (model) {
 var author$project$Main$GotResult = function (a) {
 	return {$: 'GotResult', a: a};
 };
-var elm$json$Json$Encode$int = _Json_wrap;
+var author$project$Main$resultDecoder = A3(
+	elm$json$Json$Decode$map2,
+	author$project$Main$MatchResult,
+	A2(elm$json$Json$Decode$field, 'winVotes', elm$json$Json$Decode$int),
+	A2(elm$json$Json$Decode$field, 'loseVotes', elm$json$Json$Decode$int));
+var elm$core$String$map = _String_map;
+var elm$core$String$toLower = _String_toLower;
+var author$project$Main$urlName = function (_char) {
+	return elm$core$String$toLower(
+		A2(
+			elm$core$String$map,
+			function (c) {
+				return _Utils_eq(
+					c,
+					_Utils_chr(' ')) ? _Utils_chr('_') : c;
+			},
+			_char.name));
+};
 var elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -5997,34 +6007,22 @@ var elm$json$Json$Encode$object = function (pairs) {
 			_Json_emptyObject(_Utils_Tuple0),
 			pairs));
 };
+var elm$json$Json$Encode$string = _Json_wrap;
 var author$project$Main$voteEncoder = F2(
-	function (other, winBool) {
-		var voteFor = winBool ? 1 : 0;
-		var voteAgainst = 1 - voteFor;
+	function (winChar, loseChar) {
 		return elm$json$Json$Encode$object(
 			_List_fromArray(
 				[
 					_Utils_Tuple2(
-					'votesFor',
-					elm$json$Json$Encode$int(voteFor)),
+					'winner',
+					elm$json$Json$Encode$string(
+						author$project$Main$urlName(winChar))),
 					_Utils_Tuple2(
-					'votesAgainst',
-					elm$json$Json$Encode$int(voteAgainst)),
-					_Utils_Tuple2(
-					'oppositionId',
-					elm$json$Json$Encode$int(other.id))
+					'loser',
+					elm$json$Json$Encode$string(
+						author$project$Main$urlName(loseChar)))
 				]));
 	});
-var elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return elm$core$Maybe$Just(x);
-	} else {
-		return elm$core$Maybe$Nothing;
-	}
-};
-var elm$core$List$sortBy = _List_sortBy;
 var elm$http$Http$jsonBody = function (value) {
 	return A2(
 		_Http_pair,
@@ -6070,39 +6068,17 @@ var elm$url$Url$Builder$crossOrigin = F3(
 	});
 var author$project$Main$castVote = F2(
 	function (winChar, loseChar) {
-		var charen = function () {
-			var _n0 = elm$core$List$head(
-				A2(
-					elm$core$List$sortBy,
-					function ($) {
-						return $.id;
-					},
-					_List_fromArray(
-						[winChar, loseChar])));
-			if (_n0.$ === 'Nothing') {
-				return author$project$Main$nullCharacter;
-			} else {
-				var _char = _n0.a;
-				return _char;
-			}
-		}();
-		var charenWinner = _Utils_eq(charen, winChar);
-		var otherChar = charenWinner ? loseChar : winChar;
 		var body = elm$http$Http$jsonBody(
-			A2(author$project$Main$voteEncoder, otherChar, charenWinner));
+			A2(author$project$Main$voteEncoder, winChar, loseChar));
 		return elm$http$Http$post(
 			{
 				body: body,
 				expect: A2(elm$http$Http$expectJson, author$project$Main$GotResult, author$project$Main$resultDecoder),
 				url: A3(
 					elm$url$Url$Builder$crossOrigin,
-					'https://smashcountdown.azurewebsites.net',
+					'https://chars.azurewebsites.net',
 					_List_fromArray(
-						[
-							'characters',
-							elm$core$String$fromInt(charen.id),
-							'results'
-						]),
+						['api', 'Vote']),
 					_List_Nil)
 			});
 	});
@@ -6405,8 +6381,21 @@ var author$project$Main$update = F2(
 						{charOne: tuple.a, charTwo: tuple.b}),
 					elm$core$Platform$Cmd$none);
 			default:
-				var matchResult = msg.a;
-				return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				var result = msg.a;
+				if (result.$ === 'Err') {
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{lastResult: author$project$Main$nullResult}),
+						elm$core$Platform$Cmd$none);
+				} else {
+					var res = result.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{lastResult: res}),
+						elm$core$Platform$Cmd$none);
+				}
 		}
 	});
 var author$project$Main$CharPicked = F2(
@@ -6421,28 +6410,15 @@ var author$project$Main$bigSmashUrl = function (_char) {
 			['assets_v2', 'img', 'fighter', _char, 'main.png']),
 		_List_Nil);
 };
-var elm$core$String$map = _String_map;
-var elm$core$String$toLower = _String_toLower;
-var author$project$Main$urlName = function (_char) {
-	return elm$core$String$toLower(
-		A2(
-			elm$core$String$map,
-			function (c) {
-				return _Utils_eq(
-					c,
-					_Utils_chr(' ')) ? _Utils_chr('_') : c;
-			},
-			_char.name));
-};
 var author$project$Main$urlForChar = function (_char) {
 	return author$project$Main$bigSmashUrl(
 		author$project$Main$urlName(_char));
 };
-var author$project$Main$youPickedText = function (_char) {
-	return _Utils_eq(_char, author$project$Main$nullCharacter) ? '' : ('You picked ' + _char.name);
-};
+var author$project$Main$youPickedText = F2(
+	function (_char, res) {
+		return _Utils_eq(_char, author$project$Main$nullCharacter) ? '' : ('You picked ' + (_char.name + ('. Total votes for ' + (_char.name + (': ' + (elm$core$String$fromInt(res.winVotes) + ('. Votes against: ' + elm$core$String$fromInt(res.loseVotes))))))));
+	});
 var elm$json$Json$Decode$map = _Json_map1;
-var elm$json$Json$Decode$map2 = _Json_map2;
 var elm$json$Json$Decode$succeed = _Json_succeed;
 var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 	switch (handler.$) {
@@ -6460,9 +6436,9 @@ var elm$html$Html$div = _VirtualDom_node('div');
 var elm$html$Html$h1 = _VirtualDom_node('h1');
 var elm$html$Html$header = _VirtualDom_node('header');
 var elm$html$Html$img = _VirtualDom_node('img');
+var elm$html$Html$nav = _VirtualDom_node('nav');
 var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
-var elm$json$Json$Encode$string = _Json_wrap;
 var elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -6501,7 +6477,8 @@ var author$project$Main$view = function (model) {
 		elm$html$Html$div,
 		_List_fromArray(
 			[
-				elm$html$Html$Attributes$class('container')
+				elm$html$Html$Attributes$class('container'),
+				elm$html$Html$Attributes$id('site')
 			]),
 		_List_fromArray(
 			[
@@ -6521,6 +6498,17 @@ var author$project$Main$view = function (model) {
 							[
 								elm$html$Html$text('Who wins?')
 							]))
+					])),
+				A2(
+				elm$html$Html$nav,
+				_List_fromArray(
+					[
+						elm$html$Html$Attributes$class('item'),
+						elm$html$Html$Attributes$id('nav')
+					]),
+				_List_fromArray(
+					[
+						elm$html$Html$text('nav')
 					])),
 				A2(
 				elm$html$Html$div,
@@ -6587,7 +6575,7 @@ var author$project$Main$view = function (model) {
 				_List_fromArray(
 					[
 						elm$html$Html$text(
-						author$project$Main$youPickedText(model.lastPickedChar))
+						A2(author$project$Main$youPickedText, model.lastPickedChar, model.lastResult))
 					]))
 			]));
 };
