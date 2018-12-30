@@ -175,6 +175,7 @@ view model =
         [
             h1[][text "Who wins?"]
         ]
+        , nav [class "item", id "nav"][text "nav"]
         , div [class "item", id "leftChar-item"]
         [
             img [class "charImage",  src (urlForChar model.charOne), alt "char1" , onClick (CharPicked model.charOne model.charTwo)][]
