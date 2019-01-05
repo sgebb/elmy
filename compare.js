@@ -4575,10 +4575,9 @@ var author$project$Main$Model = F6(
 var author$project$Main$GotCharacters = function (a) {
 	return {$: 'GotCharacters', a: a};
 };
-var author$project$Main$Character = F2(
-	function (id, name) {
-		return {id: id, name: name};
-	});
+var author$project$Main$Character = function (name) {
+	return {name: name};
+};
 var elm$core$Array$branchFactor = 32;
 var elm$core$Array$Array_elm_builtin = F4(
 	function (a, b, c, d) {
@@ -5055,13 +5054,11 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 		}
 	});
 var elm$json$Json$Decode$field = _Json_decodeField;
-var elm$json$Json$Decode$int = _Json_decodeInt;
-var elm$json$Json$Decode$map2 = _Json_map2;
+var elm$json$Json$Decode$map = _Json_map1;
 var elm$json$Json$Decode$string = _Json_decodeString;
-var author$project$Main$characterDecoder = A3(
-	elm$json$Json$Decode$map2,
+var author$project$Main$characterDecoder = A2(
+	elm$json$Json$Decode$map,
 	author$project$Main$Character,
-	A2(elm$json$Json$Decode$field, 'id', elm$json$Json$Decode$int),
 	A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string));
 var elm$json$Json$Decode$list = _Json_decodeList;
 var author$project$Main$characterListDecoder = elm$json$Json$Decode$list(author$project$Main$characterDecoder);
@@ -5946,12 +5943,50 @@ var elm$http$Http$get = function (r) {
 	return elm$http$Http$request(
 		{body: elm$http$Http$emptyBody, expect: r.expect, headers: _List_Nil, method: 'GET', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
 };
+var elm$core$List$map = F2(
+	function (f, xs) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					return A2(
+						elm$core$List$cons,
+						f(x),
+						acc);
+				}),
+			_List_Nil,
+			xs);
+	});
+var elm$url$Url$Builder$toQueryPair = function (_n0) {
+	var key = _n0.a;
+	var value = _n0.b;
+	return key + ('=' + value);
+};
+var elm$url$Url$Builder$toQuery = function (parameters) {
+	if (!parameters.b) {
+		return '';
+	} else {
+		return '?' + A2(
+			elm$core$String$join,
+			'&',
+			A2(elm$core$List$map, elm$url$Url$Builder$toQueryPair, parameters));
+	}
+};
+var elm$url$Url$Builder$crossOrigin = F3(
+	function (prePath, pathSegments, parameters) {
+		return prePath + ('/' + (A2(elm$core$String$join, '/', pathSegments) + elm$url$Url$Builder$toQuery(parameters)));
+	});
 var author$project$Main$getCharacters = elm$http$Http$get(
 	{
 		expect: A2(elm$http$Http$expectJson, author$project$Main$GotCharacters, author$project$Main$characterListDecoder),
-		url: 'https://smashcountdown.azurewebsites.net/characters'
+		url: A3(
+			elm$url$Url$Builder$crossOrigin,
+			'https://chars.azurewebsites.net',
+			_List_fromArray(
+				['api', 'GetCharacters']),
+			_List_Nil)
 	});
-var author$project$Main$nullCharacter = A2(author$project$Main$Character, 0, '');
+var author$project$Main$nullCharacter = author$project$Main$Character('');
 var author$project$Main$MatchResult = F2(
 	function (winVotes, loseVotes) {
 		return {loseVotes: loseVotes, winVotes: winVotes};
@@ -5976,6 +6011,8 @@ var author$project$Main$subscriptions = function (model) {
 var author$project$Main$GotResult = function (a) {
 	return {$: 'GotResult', a: a};
 };
+var elm$json$Json$Decode$int = _Json_decodeInt;
+var elm$json$Json$Decode$map2 = _Json_map2;
 var author$project$Main$resultDecoder = A3(
 	elm$json$Json$Decode$map2,
 	author$project$Main$MatchResult,
@@ -6033,39 +6070,6 @@ var elm$http$Http$post = function (r) {
 	return elm$http$Http$request(
 		{body: r.body, expect: r.expect, headers: _List_Nil, method: 'POST', timeout: elm$core$Maybe$Nothing, tracker: elm$core$Maybe$Nothing, url: r.url});
 };
-var elm$core$List$map = F2(
-	function (f, xs) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					return A2(
-						elm$core$List$cons,
-						f(x),
-						acc);
-				}),
-			_List_Nil,
-			xs);
-	});
-var elm$url$Url$Builder$toQueryPair = function (_n0) {
-	var key = _n0.a;
-	var value = _n0.b;
-	return key + ('=' + value);
-};
-var elm$url$Url$Builder$toQuery = function (parameters) {
-	if (!parameters.b) {
-		return '';
-	} else {
-		return '?' + A2(
-			elm$core$String$join,
-			'&',
-			A2(elm$core$List$map, elm$url$Url$Builder$toQueryPair, parameters));
-	}
-};
-var elm$url$Url$Builder$crossOrigin = F3(
-	function (prePath, pathSegments, parameters) {
-		return prePath + ('/' + (A2(elm$core$String$join, '/', pathSegments) + elm$url$Url$Builder$toQuery(parameters)));
-	});
 var author$project$Main$castVote = F2(
 	function (winChar, loseChar) {
 		var body = elm$http$Http$jsonBody(
@@ -6418,7 +6422,6 @@ var author$project$Main$youPickedText = F2(
 	function (_char, res) {
 		return _Utils_eq(_char, author$project$Main$nullCharacter) ? '' : ('You picked ' + (_char.name + ('. Total votes for ' + (_char.name + (': ' + (elm$core$String$fromInt(res.winVotes) + ('. Votes against: ' + elm$core$String$fromInt(res.loseVotes))))))));
 	});
-var elm$json$Json$Decode$map = _Json_map1;
 var elm$json$Json$Decode$succeed = _Json_succeed;
 var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 	switch (handler.$) {
