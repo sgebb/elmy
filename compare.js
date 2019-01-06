@@ -6344,6 +6344,38 @@ var author$project$Main$generateNewPicks = function (charlist) {
 		author$project$Main$CharsRolled,
 		author$project$Main$twoDifferent(charlist));
 };
+var author$project$Main$GotAllVotes = function (a) {
+	return {$: 'GotAllVotes', a: a};
+};
+var author$project$Main$CharacterMatchups = F2(
+	function (_char, results) {
+		return {_char: _char, results: results};
+	});
+var author$project$Main$Matchup = F2(
+	function (other, votes) {
+		return {other: other, votes: votes};
+	});
+var author$project$Main$matchupDecoder = A3(
+	elm$json$Json$Decode$map2,
+	author$project$Main$Matchup,
+	author$project$Main$characterDecoder,
+	A2(elm$json$Json$Decode$field, 'votes', elm$json$Json$Decode$int));
+var author$project$Main$charMatchupDecoder = A3(
+	elm$json$Json$Decode$map2,
+	author$project$Main$CharacterMatchups,
+	author$project$Main$characterDecoder,
+	elm$json$Json$Decode$list(author$project$Main$matchupDecoder));
+var author$project$Main$matchupListDecoder = elm$json$Json$Decode$list(author$project$Main$charMatchupDecoder);
+var author$project$Main$getAllVotes = elm$http$Http$get(
+	{
+		expect: A2(elm$http$Http$expectJson, author$project$Main$GotAllVotes, author$project$Main$matchupListDecoder),
+		url: A3(
+			elm$url$Url$Builder$crossOrigin,
+			'https://chars.azurewebsites.net',
+			_List_fromArray(
+				['api', 'AllVotes']),
+			_List_Nil)
+	});
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var elm$core$Tuple$second = function (_n0) {
 	var y = _n0.b;
@@ -6384,7 +6416,7 @@ var author$project$Main$update = F2(
 						model,
 						{charOne: tuple.a, charTwo: tuple.b}),
 					elm$core$Platform$Cmd$none);
-			default:
+			case 'GotResult':
 				var result = msg.a;
 				if (result.$ === 'Err') {
 					return _Utils_Tuple2(
@@ -6400,6 +6432,16 @@ var author$project$Main$update = F2(
 							{lastResult: res}),
 						elm$core$Platform$Cmd$none);
 				}
+			case 'GotAllVotes':
+				var result = msg.a;
+				if (result.$ === 'Err') {
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				} else {
+					var res = result.a;
+					return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
+				}
+			default:
+				return _Utils_Tuple2(model, author$project$Main$getAllVotes);
 		}
 	});
 var author$project$Main$CharPicked = F2(
