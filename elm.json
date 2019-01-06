@@ -26,26 +26,7 @@ main =
     }
 
 
-
 -- MODEL
-
--- characterList : List Character
--- characterList = 
---     List.map Character  ["Mario","Link", "Kirby", "Yoshi","Donkey Kong","Samus"
---     ,"Fox","Pikachu","Jigglypuff","Captain Falcon","Ness","Luigi", "Peach","Bowser"
---     ,"Zelda","Sheik","Pichu","Falco","Dr Mario", "Ice Climbers", "Young Link"
---     , "Marth","Ganondorf","Mewtwo","Roy","Mr Game and Watch","Pit","Meta Knight"
---     ,"Wario","Lucas","Ike","Pokemon Trainer","Snake","Sonic","Zero Suit Samus"
---     ,"Olimar","Diddy Kong","Lucario","Toon Link","Wolf","ROB","Mega Man"
---     ,"Rosalina and Luma","Villager","Palutena","Little Mac","Dark Pit","Lucina"
---     ,"Greninja","Wii Fit Trainer","Pac-Man","Robin","Bowser Jr","Shulk","Ryu","Cloud"
---     ,"Corrin","Bayonetta","Inkling","Ridley","Simon Belmont","Daisy","Richter","Chrom"
---     ,"Dark Samus","King K Rool","Isabelle","Ken","Incineroar"] []
-
--- Mocklist that works with new model
--- characterList : List Character
--- characterList =
---     [Character 1 "Mario" [], Character 2 "Bowser Jr" [], Character 3 "Mewtwo" []]
 
 type alias Model =
   { charOne: Character
@@ -62,6 +43,14 @@ type alias Character =
 type alias MatchResult = 
     { winVotes: Int
     , loseVotes: Int}
+
+type alias CharacterMatchups =
+    {char: Character,
+    results: List Matchup}
+
+type alias Matchup = 
+    {other: Character,
+    votes: Int}
 
 nullCharacter : Character
 nullCharacter =
@@ -96,6 +85,8 @@ type Msg
   | GotCharacters (Result Http.Error (List Character))
   | GotResult (Result Http.Error (MatchResult))
   | CharsRolled (Character, Character)
+  | GotAllVotes (Result Http.Error (List CharacterMatchups))
+  | GetAllVotes
 
 
 
@@ -119,6 +110,14 @@ update msg model =
                 ({model | lastResult = nullResult}, Cmd.none)
             Ok res ->
                 ({model | lastResult = res}, Cmd.none)
+    GotAllVotes result ->
+        case result of
+            Err _ ->
+                (model, Cmd.none)
+            Ok res ->
+                (model, Cmd.none)
+    GetAllVotes ->
+        (model, getAllVotes)
 
 generateNewPicks : List Character -> Cmd Msg
 generateNewPicks charlist = 
@@ -194,8 +193,7 @@ view model =
             img [class "charImage",  src (urlForChar model.charTwo), alt "char2", onClick (CharPicked model.charTwo model.charOne)][]
         ]
         , div [class "item", id "underText-item"] [text (youPickedText model.lastPickedChar model.lastResult)]
-        --, div [] [debugList model.charList]
-        --, div [] [text (model.charOne.name ++ model.charTwo.name)]
+        --, button [onClick GetAllVotes][text "GetAllVotes"]
     ]
 
 youPickedText : Character -> MatchResult -> String
@@ -229,6 +227,13 @@ castVote winChar loseChar =
         , body = body
         , expect = Http.expectJson GotResult resultDecoder}
 
+getAllVotes : Cmd Msg
+getAllVotes =
+    Http.get{
+        url = Url.crossOrigin "https://chars.azurewebsites.net" ["api","AllVotes"] []
+        , expect = Http.expectJson GotAllVotes matchupListDecoder
+    }
+
 
 
 -- DECODERS
@@ -250,9 +255,21 @@ resultDecoder =
         (field "loseVotes" int)
 
 
-resultListDecoder : Decoder (List MatchResult)
-resultListDecoder =
-    list resultDecoder
+matchupListDecoder : Decoder (List CharacterMatchups)
+matchupListDecoder =
+    list charMatchupDecoder
+
+charMatchupDecoder : Decoder (CharacterMatchups)
+charMatchupDecoder =
+    map2 CharacterMatchups
+        characterDecoder
+        (list matchupDecoder)
+
+matchupDecoder : Decoder (Matchup)
+matchupDecoder =
+    map2 Matchup
+        characterDecoder
+        (field "votes" int)
 
 voteEncoder : Character -> Character -> Encode.Value
 voteEncoder winChar loseChar = 
