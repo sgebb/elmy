@@ -180,3 +180,34 @@ cellView tile model =
 evalFunc : Model -> (Model -> Html Msg)  -> Html Msg
 evalFunc  model func =
     func model
+    
+    
+--HELPER
+find : a -> Array a -> Maybe Int
+find item array = 
+  Tuple.second <| Array.foldl (\currentItem (i, match) ->
+    if currentItem == item then
+      (i + 1, Just i)
+    else
+      (i + 1, match)
+  ) (0, Nothing) array
+  
+findArray : a -> Array (Array a) -> Maybe Int
+findArray item array = 
+    Tuple.second <| Array.foldl (\currentArray (i, match) ->
+    case (find item currentArray) of 
+      Just _ -> 
+        (i + 1, Just i)
+      Nothing ->
+        (i + 1, match)
+  ) (0, Nothing) array
+
+coordinates : a -> Array (Array a) -> (Int,Int)
+coordinates item board =
+    let
+        maybeCol = findArray item board
+        col = maybeCol |> Maybe.withDefault 0
+        maybeRow = find item ((Array.get col board)|> Maybe.withDefault Array.empty)
+        row = maybeRow |> Maybe.withDefault 0
+    in
+        (row, col)
